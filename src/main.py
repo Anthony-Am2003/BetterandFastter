@@ -1,15 +1,10 @@
-# main.py
-
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from fastapi.responses import RedirectResponse
 from typing import List
-from .schemas import UserBase, UserCreate, User, TaskBase, TaskCreate, Task
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Middleware settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,21 +13,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Redirect to /docs automatically
-@app.get('/', response_class=RedirectResponse, include_in_schema=False)
-async def docs():
-    return RedirectResponse(url='/docs')
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
 
-# Users database
 users_db = []
 
 @app.post("/users/", response_model=User)
-def create_user(user: UserCreate):
-    user_data = user.dict()
-    user_data["id"] = len(users_db) + 1
-    new_user = User(**user_data)
-    users_db.append(new_user)
-    return new_user
+def create_user(user: User):
+    users_db.append(user)
+    return user
 
 @app.get("/users/", response_model=List[User])
 def read_users():
@@ -45,16 +36,34 @@ def read_user(user_id: int):
             return user
     raise HTTPException(status_code=404, detail="User not found")
 
-# Tasks database
+@app.put("/users/{user_id}", response_model=User)
+def update_user(user_id: int, updated_user: User):
+    for i, user in enumerate(users_db):
+        if user.id == user_id:
+            users_db[i] = updated_user
+            return updated_user
+    raise HTTPException(status_code=404, detail="User not found")
+
+@app.delete("/users/{user_id}", response_model=User)
+def delete_user(user_id: int):
+    for i, user in enumerate(users_db):
+        if user.id == user_id:
+            deleted_user = users_db.pop(i)
+            return deleted_user
+    raise HTTPException(status_code=404, detail="User not found")
+
+class Task(BaseModel):
+    id: int
+    title: str
+    description: str
+    complete: bool
+
 tasks_db = []
 
 @app.post("/tasks/", response_model=Task)
-def create_task(task: TaskCreate):
-    task_data = task.dict()
-    task_data["id"] = len(tasks_db) + 1
-    new_task = Task(**task_data)
-    tasks_db.append(new_task)
-    return new_task
+def create_task(task: Task):
+    tasks_db.append(task)
+    return task
 
 @app.get("/tasks/", response_model=List[Task])
 def read_tasks():
@@ -64,6 +73,14 @@ def read_tasks():
 def read_task(task_id: int):
     for task in tasks_db:
         if task.id == task_id:
+            return task
+    raise HTTPException(status_code=404, detail="Task not found")
+
+@app.put("/tasks/{task_id}", response_model=Task)
+def complete_task(task_id: int):
+    for task in tasks_db:
+        if task.id == task_id:
+            task.complete = True
             return task
     raise HTTPException(status_code=404, detail="Task not found")
 
